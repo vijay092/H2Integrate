@@ -1,0 +1,7 @@
+name: nuclear_datacenter_config_case_3
+system_summary: >
+  Nuclear plant powering a data center with bidirectional grid connection.
+  Nuclear surplus sells to the grid; grid backs up DC when nuclear is undersized.
+driver_config: driver_config.yaml
+plant_config: plant_config.yaml
+technology_config: tech_config.yaml

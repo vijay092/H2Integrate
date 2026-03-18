@@ -1,0 +1,10 @@
+name: driver_config
+description: Driver configuration for nuclear DC case 3 (bidirectional grid)
+
+general:
+  folder_output: nuclear_dc_case3_run
+
+recorder:
+  flag: true
+  file: results.sql
+  overwrite_recorder: false
