@@ -3,8 +3,8 @@ import pytest
 import openmdao.api as om
 
 from h2integrate.storage.simple_storage_auto_sizing import StorageAutoSizingModel
-from h2integrate.control.control_strategies.storage.passthrough_openloop_controller import (
-    PassThroughOpenLoopController,
+from h2integrate.control.control_strategies.storage.simple_openloop_controller import (
+    SimpleStorageOpenLoopController,
 )
 
 
@@ -18,8 +18,8 @@ def test_storage_autosizing_basic_performance_no_losses(plant_config, subtests):
         "commodity": "hydrogen",
         "commodity_rate_units": "kg/h",
         "set_demand_as_avg_commodity_in": True,
-        "min_charge_fraction": 0.0,
-        "max_charge_fraction": 1.0,
+        "min_soc_fraction": 0.0,
+        "max_soc_fraction": 1.0,
         "commodity_amount_units": "kg",
         "charge_efficiency": 1.0,
         "discharge_efficiency": 1.0,
@@ -85,12 +85,12 @@ def test_storage_autosizing_basic_performance_no_losses(plant_config, subtests):
     with subtests.test("Charge is always negative"):
         assert np.all(prob.get_val("storage.storage_hydrogen_charge", units="kg/h") <= 0)
 
-    with subtests.test("Charge + Discharge == storage_hydrogen_out"):
+    with subtests.test("Charge + Discharge == hydrogen_out"):
         charge_plus_discharge = prob.get_val(
             "storage.storage_hydrogen_charge", units="kg/h"
         ) + prob.get_val("storage.storage_hydrogen_discharge", units="kg/h")
         np.testing.assert_allclose(
-            charge_plus_discharge, prob.get_val("storage_hydrogen_out", units="kg/h"), rtol=1e-6
+            charge_plus_discharge, prob.get_val("hydrogen_out", units="kg/h"), rtol=1e-6
         )
 
     # Check that never charging and discharging at the same time
@@ -143,20 +143,23 @@ def test_storage_autosizing_basic_performance_no_losses(plant_config, subtests):
         )
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max() <= capacity
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min() >= -1 * capacity
+        assert np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).max() <= capacity
+        assert np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).min() >= -1 * capacity
 
     # Check that demand is fully met, this is because this test starts off with charging the storage
     # enough. In cases where the storage is not charged enough at the start, the demand may not
     # fully be met
     with subtests.test("Demand is fully met"):
+        combined_out = commodity_in + prob.get_val("hydrogen_out", units="kg/h")
+        combined_commodity_to_demand = np.clip(combined_out, a_min=0, a_max=commodity_demand)
         np.testing.assert_allclose(
-            prob.get_val("hydrogen_out", units="kg/h"), commodity_demand, rtol=1e-6, atol=1e-10
+            combined_commodity_to_demand, commodity_demand, rtol=1e-6, atol=1e-10
         )
 
     with subtests.test("Unmet demand"):
+        unmet_demand = commodity_demand - combined_commodity_to_demand
         np.testing.assert_allclose(
-            prob.get_val("unmet_hydrogen_demand_out", units="kg/h"),
+            unmet_demand,
             np.zeros(len(commodity_demand)),
             rtol=1e-6,
             atol=1e-10,
@@ -185,9 +188,9 @@ def test_storage_autosizing_basic_performance_no_losses(plant_config, subtests):
         )
 
     with subtests.test("Total unused commodity"):
-        assert (
-            pytest.approx(prob.get_val("unused_hydrogen_out", units="kg/h").sum(), rel=1e-6) == 5.0
-        )
+        combined_out = prob.get_val("hydrogen_out", units="kg/h") + commodity_in
+        unused_commodity_out = combined_out - commodity_demand
+        assert pytest.approx(unused_commodity_out.sum(), rel=1e-6) == 5.0
 
 
 @pytest.mark.regression
@@ -197,8 +200,8 @@ def test_storage_autosizing_soc_bounds(plant_config, subtests):
         "commodity": "hydrogen",
         "commodity_rate_units": "kg/h",
         "set_demand_as_avg_commodity_in": True,
-        "min_charge_fraction": 0.1,
-        "max_charge_fraction": 0.9,
+        "min_soc_fraction": 0.1,
+        "max_soc_fraction": 0.9,
         "commodity_amount_units": "kg",
         "charge_efficiency": 1.0,
         "discharge_efficiency": 1.0,
@@ -250,8 +253,8 @@ def test_storage_autosizing_soc_bounds(plant_config, subtests):
         expected_usable_capacity = np.max(soc_kg_adj) - np.min(soc_kg_adj)
 
         expected_capacity = expected_usable_capacity / (
-            performance_model_config["max_charge_fraction"]
-            - performance_model_config["min_charge_fraction"]
+            performance_model_config["max_soc_fraction"]
+            - performance_model_config["min_soc_fraction"]
         )
         assert pytest.approx(capacity, rel=1e-6) == expected_capacity
 
@@ -265,25 +268,29 @@ def test_storage_autosizing_soc_bounds(plant_config, subtests):
     with subtests.test("SOC >= min SOC fraction"):
         assert np.all(
             prob.get_val("storage.SOC", units="unitless")
-            >= performance_model_config["min_charge_fraction"]
+            >= performance_model_config["min_soc_fraction"]
         )
 
     with subtests.test("SOC <= max SOC fraction"):
         assert np.all(
             prob.get_val("storage.SOC", units="unitless")
-            <= performance_model_config["max_charge_fraction"]
+            <= performance_model_config["max_soc_fraction"]
         )
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max() <= capacity
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min() >= -1 * capacity
+        assert np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).max() <= capacity
+        assert np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).min() >= -1 * capacity
 
     # Check that demand is fully met, this is because this test starts off with charging the storage
     # enough. In cases where the storage is not charged enough at the start, the demand may not
     # fully be met
     with subtests.test("Demand is fully met"):
+        combined_out = commodity_in + prob.get_val("hydrogen_out", units="kg/h")
         np.testing.assert_allclose(
-            prob.get_val("hydrogen_out", units="kg/h"), commodity_demand, rtol=1e-6, atol=1e-10
+            np.clip(combined_out, a_min=0, a_max=commodity_demand),
+            commodity_demand,
+            rtol=1e-6,
+            atol=1e-10,
         )
 
 
@@ -296,8 +303,8 @@ def test_storage_autosizing_losses(plant_config, subtests):
         "commodity": "hydrogen",
         "commodity_rate_units": "kg/h",
         "set_demand_as_avg_commodity_in": True,
-        "min_charge_fraction": 0.0,
-        "max_charge_fraction": 1.0,
+        "min_soc_fraction": 0.0,
+        "max_soc_fraction": 1.0,
         "commodity_amount_units": "kg",
         "charge_efficiency": charge_eff,
         "discharge_efficiency": discharge_eff,
@@ -421,7 +428,7 @@ def test_storage_autosizing_losses(plant_config, subtests):
 @pytest.mark.parametrize("n_timesteps", [24])
 def test_storage_autosizing_with_passthrough_controller(plant_config, subtests):
     # Basic test to ensure that storage performance model
-    # works as-expected with the PassThroughOpenLoopController.
+    # works as-expected with the SimpleStorageOpenLoopController.
     # This test should have the same results as test_storage_autosizing_basic_performance_no_losses
 
     tech_config = {
@@ -431,8 +438,8 @@ def test_storage_autosizing_with_passthrough_controller(plant_config, subtests):
             "set_demand_as_avg_commodity_in": True,
         },
         "performance_parameters": {
-            "min_charge_fraction": 0.0,
-            "max_charge_fraction": 1.0,
+            "min_soc_fraction": 0.0,
+            "max_soc_fraction": 1.0,
             "commodity_amount_units": "kg",
             "charge_efficiency": 1.0,
             "discharge_efficiency": 1.0,
@@ -454,7 +461,7 @@ def test_storage_autosizing_with_passthrough_controller(plant_config, subtests):
 
     prob.model.add_subsystem(
         "controller",
-        PassThroughOpenLoopController(
+        SimpleStorageOpenLoopController(
             plant_config=plant_config,
             tech_config={"model_inputs": tech_config},
         ),
