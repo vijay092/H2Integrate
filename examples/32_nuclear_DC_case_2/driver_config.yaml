@@ -1,9 +1,0 @@
-name: driver_config
-description: Driver configuration for nuclear hydrogen production example
-general:
-  folder_output: nuclear_hydrogen_run
-
-recorder:
-  flag: true
-  file: results.sql
-  overwrite_recorder: false

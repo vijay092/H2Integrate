@@ -1,5 +1,0 @@
-name: nuclear_datacenter_config
-system_summary: Nuclear plant powering a data center
-driver_config: driver_config.yaml
-plant_config: plant_config.yaml
-technology_config: tech_config.yaml

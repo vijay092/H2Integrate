@@ -13,11 +13,11 @@ technologies:
       performance_parameters: {}
       cost_parameters:
         cost_year: 2024
-        capex_per_kw: 6500
-        fixed_opex_per_kw_year: 150
-        variable_opex_per_mwh: 15
+        capex_per_kw: 7400
+        fixed_opex_per_kw_year: 0.0
+        variable_opex_per_mwh: 28
         reference_capacity_kw: 1000000
-        capex_scaling_exponent: 0.85
+        capex_scaling_exponent: 0.7
 
   grid:
     performance_model:

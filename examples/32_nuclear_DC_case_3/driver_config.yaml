@@ -5,6 +5,6 @@ general:
   folder_output: nuclear_dc_case3_run
 
 recorder:
-  flag: true
+  flag: false
   file: results.sql
   overwrite_recorder: false

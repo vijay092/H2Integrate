@@ -12,36 +12,49 @@ technologies:
       model: QuinnNuclearCostModel
     model_inputs:
       shared_parameters:
-        system_capacity_kw: 1000000   # 1000 MW default; varied in notebook sweep
+        system_capacity_kw: 1000000  # 1000 MW nuclear plant
       performance_parameters: {}
       cost_parameters:
         cost_year: 2024
-        capex_per_kw: 6500            # $/kW
-        fixed_opex_per_kw_year: 150   # $/kW/year
-        variable_opex_per_mwh: 15     # $/MWh
+        capex_per_kw: 7400
+        fixed_opex_per_kw_year: 0.0
+        variable_opex_per_mwh: 28
         reference_capacity_kw: 1000000
-        capex_scaling_exponent: 0.85
+        capex_scaling_exponent: 0.7
 
-  grid:
+  # Separate grid connection for buying backup power when nuclear < DC demand
+  grid_buy:
     performance_model:
       model: GridPerformanceModel
     cost_model:
       model: GridCostModel
     model_inputs:
       shared_parameters:
-        # Sized to handle max nuclear sweep (3 GW) so interconnection never clips flows.
-        # Varied in the notebook to match nuclear plant size for cost scaling.
-        interconnection_size: 3000000   # kW
+        interconnection_size: 2000000   # kW, sized to max DC demand (2 GW)
       performance_parameters: {}
       cost_parameters:
         cost_year: 2024
         interconnection_capex_per_kw: 100    # $/kW
         interconnection_opex_per_kw: 5       # $/kW/year
         fixed_interconnection_cost: 0
-        # Revenue earned when nuclear surplus flows to grid
-        electricity_sell_price: 0.05         # $/kWh
-        # Cost incurred when grid backs up the DC (nuclear is undersized)
-        electricity_buy_price: 0.08          # $/kWh
+        electricity_buy_price: 0.08          # $/kWh — cost of backup power
+
+  # Separate grid connection for nuclear selling surplus when nuclear > DC demand
+  grid_sell:
+    performance_model:
+      model: GridPerformanceModel
+    cost_model:
+      model: GridCostModel
+    model_inputs:
+      shared_parameters:
+        interconnection_size: 3000000   # kW, sized to max nuclear sweep (3 GW)
+      performance_parameters: {}
+      cost_parameters:
+        cost_year: 2024
+        interconnection_capex_per_kw: 100    # $/kW
+        interconnection_opex_per_kw: 5       # $/kW/year
+        fixed_interconnection_cost: 0
+        electricity_sell_price: 0.05         # $/kWh — revenue from surplus sales
 
   electrical_load_demand:
     control_strategy:

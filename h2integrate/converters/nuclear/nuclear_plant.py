@@ -49,7 +49,9 @@ class QuinnNuclearPerformanceModel(PerformanceModelBaseClass):
         n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
 
         self.config = NuclearPerformanceConfig.from_dict(
-            merge_shared_inputs(self.options["tech_config"]["model_inputs"], "performance"),
+            merge_shared_inputs(
+                self.options["tech_config"]["model_inputs"], "performance"
+            ),
             additional_cls_name=self.__class__.__name__,
         )
 
@@ -168,7 +170,9 @@ class QuinnNuclearCostModel(CostModelBaseClass):
         system_capacity_kw = inputs["system_capacity"]
         scale_ratio = system_capacity_kw / reference_capacity_kw
 
-        scaled_capex_per_kw = capex_per_kw * (scale_ratio ** (capex_scaling_exponent - 1.0))
+        scaled_capex_per_kw = capex_per_kw * (
+            scale_ratio ** (capex_scaling_exponent - 1.0)
+        )
         capex = scaled_capex_per_kw * system_capacity_kw
 
         electricity_out = inputs["electricity_out"]

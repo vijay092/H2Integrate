@@ -21,7 +21,7 @@ finance_parameters:
     model_inputs:
       params:
         analysis_start_year: 2024
-        installation_time: 60  # months
+        installation_time: 90  # months
         inflation_rate: 0.0  # real analysis
         discount_rate: 0.06
         debt_equity_ratio: 0.6
@@ -39,6 +39,30 @@ finance_parameters:
         depr_period: 7
         refurb: [0.]
 
+    npv:
+      finance_model: ProFastNPV
+      model_inputs:
+        commodity_sell_price: 0.10  # $/kWh — override per scenario in notebook
+        params:
+          analysis_start_year: 2024
+          installation_time: 90
+          inflation_rate: 0.0
+          discount_rate: 0.06
+          debt_equity_ratio: 0.6
+          property_tax_and_insurance: 0.025
+          total_income_tax_rate: 0.26
+          capital_gains_tax_rate: 0.15
+          sales_tax_rate: 0.0
+          debt_interest_rate: 0.07
+          debt_type: Revolving debt
+          loan_period_if_used: 0
+          cash_onhand_months: 1
+          admin_expense: 0.00
+        capital_items:
+          depr_type: MACRS
+          depr_period: 7
+          refurb: [0.]
+
   cost_adjustment_parameters:
     cost_year_adjustment_inflation: 0.025
     target_dollar_year: 2022
@@ -47,4 +71,10 @@ finance_parameters:
     nuclear:
       commodity: electricity
       commodity_stream: nuclear
-      technologies: [nuclear, grid]
+      technologies: [nuclear]  # Exclude grid to avoid including revenue in LCOE
+
+    nuclear_npv:
+      commodity: electricity
+      commodity_stream: nuclear
+      technologies: [nuclear]
+      finance_groups: [npv]
