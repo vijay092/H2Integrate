@@ -1,0 +1,20 @@
+{
+  "CAISO": "69.1",
+  "ERCOT": "51.0",
+  "FRCC": "69.3",
+  "ISONE": "56.4",
+  "MISO Central": "56.2",
+  "MISO North": "53.9",
+  "MISO South": "56.9",
+  "Northern Grid East": "43.6",
+  "Northern Grid South": "57.0",
+  "Northern Grid West": "45.2",
+  "NYISO": "68.8",
+  "PJM East": "62.5",
+  "PJM West": "59.1",
+  "SERTP": "63.7",
+  "SPP North": "42.1",
+  "SPP South": "36.3",
+  "West Connect North": "39.0",
+  "West Connect South": "54.2"
+}

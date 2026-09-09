@@ -1,0 +1,171 @@
+name: technology_config
+description: >
+  Technology configuration for nuclear + BESS + data center (Case 5).
+  Two AP1000 units (2400 MW combined) feed both a BESS (for charging) and a
+  combiner directly; the BESS nets its charge/discharge into the same
+  combiner, whose combined output supplies the data center (1000 MW). Any
+  shortfall is bought from the grid, and any surplus is sold to the grid,
+  mirroring Case 3's bidirectional grid split.
+  ============================================================================
+  BESS rating: 200 MW power, sized to the peak charging demand identified in
+  the EMT analysis; 2-hour duration (400 MWh), consistent with a commercially
+  available utility-scale battery class assembled from standardized ~2 MW /
+  4 MWh units, as deployed alongside large AI/industrial loads at the
+  100-250 MW scale. SOC window is 20-80%; round-trip efficiency is 0.85
+  (charge_efficiency = discharge_efficiency = sqrt(0.85) per-direction). The
+  BESS rating is unchanged from the single-unit configuration -- it is fixed
+  by the EMT-derived peak charging demand, not scaled with nuclear or DC size.
+  ============================================================================
+  Battery cost basis: NREL ATB 2024 (v4.0.0), Utility-Scale Battery Storage,
+  Moderate scenario, Market case, 2024 model year. Pulled directly from NREL's
+  public ATBe.csv (oedi-data-lake S3 bucket), not page text. `energy_capex`
+  and `power_capex` are the slope/intercept of a linear fit against ATB's
+  own published 2/4/6/8/10-hour Overnight Capital Cost (OCC) figures --
+  ATB's own cost formula is `Total Cost($/kW) = power_capex + duration(hr) *
+  energy_capex`. The 2-hour duration used here is one of ATB's directly
+  published points ($1058.37/kW), so no extrapolation is needed: the fit
+  reproduces it exactly (R^2 = 1.0) along with all other published durations.
+  OCC (not the full ATB "CAPEX" line) is used deliberately: it excludes
+  ATB's own $100/kW grid connection cost (GCC) and construction financing
+  cost (CFC), since this model already accounts for both elsewhere -- GCC via
+  the grid_buy/grid_sell interconnection_capex_per_kw, and CFC via ProFAST's
+  own financing calculation from installation_time/discount_rate.
+  `opex_fraction` (2.5%) matches ATB's Fixed O&M exactly at all 5 published
+  durations.
+
+technologies:
+  nuclear:
+    performance_model:
+      model: QuinnNuclearPerformanceModel
+    cost_model:
+      model: QuinnNuclearCostModel
+    model_inputs:
+      shared_parameters:
+        system_capacity_kw: 2400000  # 2400 MW, two AP1000 units
+      performance_parameters: {}
+      cost_parameters:
+        cost_year: 2024
+        capex_per_kw: 9300              # $/kW AP1000 greenfield (Shirvan 2024)
+        fixed_opex_per_kw_year: 0.0
+        variable_opex_per_mwh: 23       # $/MWh (Shirvan 2024)
+        # 1150 MWe = the AP1000 unit capacity Shirvan 2024 itself states
+        # ("...cost of the next AP1000 (1150 MWe Generation III+)..."), and
+        # the capacity capex_per_kw's $9,300/kW is anchored to (low end of
+        # the "Next 2 @ Green Field" $9,300-$11,625/kW range). This is the
+        # point at which capex_per_kw applies at face value (scale_ratio =
+        # system_capacity_kw / reference_capacity_kw = 1); away from
+        # 1150 MW, the 0.5 exponent below applies real economies/
+        # diseconomies of scale relative to the actual single-unit reference.
+        reference_capacity_kw: 1150000
+        capex_scaling_exponent: 0.5
+
+  battery:
+    performance_model:
+      model: StoragePerformanceModel
+    cost_model:
+      model: ATBBatteryCostModel
+    control_strategy:
+      model: DemandOpenLoopStorageController
+    model_inputs:
+      shared_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
+        max_charge_rate: 200000        # kW (200 MW, peak EMT charging demand)
+        max_capacity: 400000           # kWh (400 MWh -> 2-hour duration)
+        max_discharge_rate: 200000     # kW
+        max_soc_fraction: 0.8
+        min_soc_fraction: 0.2
+        init_soc_fraction: 0.5
+        # sqrt(0.85) per-direction, so charge_eff * discharge_eff = 0.85
+        # round-trip efficiency (NREL ATB 2024, Utility-Scale Battery Storage)
+        charge_efficiency: 0.9220
+        discharge_efficiency: 0.9220
+        demand_profile: 1000000        # kW target -- matches DC demand below;
+                                        # battery charges on nuclear output above
+                                        # this level, discharges to help cover
+                                        # nuclear output below this level
+      cost_parameters:
+        cost_year: 2024
+        energy_capex: 355.75           # $/kWh (NREL ATB 2024 v4.0.0, Moderate/Market, OCC basis)
+        power_capex: 346.86            # $/kW (NREL ATB 2024 v4.0.0, Moderate/Market, OCC basis)
+        opex_fraction: 0.025           # 2.5% of CapEx/yr (NREL ATB 2024, confirmed)
+      financial_parameters:
+        capital_items:
+          depr_type: MACRS
+          depr_period: 7                    # IRS MACRS class for battery storage equipment
+          refurbishment_period_years: 15     # NREL ATB 2024 system life
+          replacement_cost_percent: 1.0      # full augmentation/replacement at end of life
+
+  elec_combiner:
+    performance_model:
+      model: GenericCombinerPerformanceModel
+    model_inputs:
+      performance_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
+
+  # Separate grid connection for buying backup power when nuclear+BESS < DC demand
+  grid_buy:
+    performance_model:
+      model: GridPerformanceModel
+    cost_model:
+      model: GridCostModel
+    model_inputs:
+      shared_parameters:
+        interconnection_size: 2000000   # kW, sized with margin over DC demand
+      performance_parameters: {}
+      cost_parameters:
+        cost_year: 2024
+        interconnection_capex_per_kw: 100    # $/kW
+        interconnection_opex_per_kw: 5       # $/kW/year
+        fixed_interconnection_cost: 0
+        electricity_buy_price: 0.08          # $/kWh -- cost of backup power
+
+  # Cost-only counterpart to grid_buy/grid_sell: same interconnection CapEx/
+  # OpEx rates, but no buy/sell price attached, so including it in the LCOE
+  # finance subgroup adds nuclear's own point-of-interconnection cost without
+  # also pulling in grid_buy/grid_sell's buy cost or sell revenue (which are
+  # deliberately excluded from the LCOE subgroup -- see plant_config.yaml).
+  # Not wired into technology_interconnections: CapEx/OpEx here depend only
+  # on interconnection_size, not on any actual electricity flow, so no
+  # physical connection is needed for the cost to be computed correctly.
+  nuclear_poi:
+    performance_model:
+      model: GridPerformanceModel
+    cost_model:
+      model: GridCostModel
+    model_inputs:
+      shared_parameters:
+        interconnection_size: 2400000   # kW, sized to match nuclear plant
+      performance_parameters: {}
+      cost_parameters:
+        cost_year: 2024
+        interconnection_capex_per_kw: 100    # $/kW (same rate as grid_buy/grid_sell)
+        interconnection_opex_per_kw: 5       # $/kW/year (same rate as grid_buy/grid_sell)
+        fixed_interconnection_cost: 0
+
+  # Separate grid connection for selling surplus when nuclear+BESS > DC demand
+  grid_sell:
+    performance_model:
+      model: GridPerformanceModel
+    cost_model:
+      model: GridCostModel
+    model_inputs:
+      shared_parameters:
+        interconnection_size: 3000000   # kW, sized with margin over nuclear capacity
+      performance_parameters: {}
+      cost_parameters:
+        cost_year: 2024
+        interconnection_capex_per_kw: 100    # $/kW
+        interconnection_opex_per_kw: 5       # $/kW/year
+        fixed_interconnection_cost: 0
+        electricity_sell_price: 0.05         # $/kWh -- revenue from surplus sales
+
+  electrical_load_demand:
+    performance_model:
+      model: GenericDemandComponent
+    model_inputs:
+      performance_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
+        demand_profile: 1000000  # 1000 MW constant DC load

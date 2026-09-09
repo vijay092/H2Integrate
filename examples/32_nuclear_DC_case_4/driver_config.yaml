@@ -1,0 +1,9 @@
+name: driver_config
+description: Driver configuration for Case 4 – nuclear + nat gas backup + DC behind the meter
+general:
+  folder_output: nuclear_dc_case4_run
+
+recorder:
+  flag: true
+  file: results.sql
+  overwrite_recorder: false

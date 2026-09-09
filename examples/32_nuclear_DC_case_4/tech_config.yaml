@@ -1,0 +1,71 @@
+name: technology_config
+description: >
+  Case 4 – Two nuclear plants (modeled as one combined source) + NGCT backup + grid sell.
+  The notebook generates a combined availability profile from two staggered plants so that
+  the combined output is always ≥ 50% of capacity (at least one plant always online).
+  Nat gas covers the 50% deficit when one plant is offline.
+  Nat gas grid-sell capability is noted but requires an aggregator component (framework limitation).
+
+technologies:
+
+  nuclear:
+    performance_model:
+      model: QuinnNuclearPerformanceModel
+    cost_model:
+      model: QuinnNuclearCostModel
+    model_inputs:
+      shared_parameters:
+        system_capacity_kw: 2000000    # 2000 MW combined (2 × 1000 MW); varied in sweep
+      performance_parameters: {}
+      cost_parameters:
+        cost_year: 2024
+        capex_per_kw: 7400             # $/kW (matches case 1 AP1000 reference)
+        fixed_opex_per_kw_year: 0.0    # $/kW/year
+        variable_opex_per_mwh: 28      # $/MWh
+        reference_capacity_kw: 1000000
+        capex_scaling_exponent: 0.7
+
+  # NGCT backup – covers the 50% deficit when one nuclear plant is offline.
+  # Nat gas grid-sell would require an aggregator to combine with nuclear surplus;
+  # currently grid_sell only receives nuclear surplus via electrical_load_demand.
+  nat_gas:
+    performance_model:
+      model: NaturalGasPerformanceModel
+    cost_model:
+      model: NaturalGasCostModel
+    model_inputs:
+      shared_parameters:
+        system_capacity_mw: 2000       # MW – sized to cover full DC demand in worst-case sweeps
+        heat_rate_mmbtu_per_mwh: 10.5
+      performance_parameters: {}
+      cost_parameters:
+        cost_year: 2024
+        capex_per_kw: 800              # $/kW (NGCT capital cost)
+        fixed_opex_per_kw_per_year: 10 # $/kW/yr
+        variable_opex_per_mwh: 50      # $/MWh (fuel + variable O&M)
+
+  # Grid sell – exports nuclear surplus when combined nuclear > DC demand.
+  grid_sell:
+    performance_model:
+      model: GridPerformanceModel
+    cost_model:
+      model: GridCostModel
+    model_inputs:
+      shared_parameters:
+        interconnection_size: 3000000  # kW – sized to max nuclear sweep (3 GW)
+      performance_parameters: {}
+      cost_parameters:
+        cost_year: 2024
+        interconnection_capex_per_kw: 100   # $/kW
+        interconnection_opex_per_kw: 5      # $/kW/yr
+        fixed_interconnection_cost: 0
+        electricity_sell_price: 0.05        # $/kWh – revenue from surplus sales
+
+  electrical_load_demand:
+    control_strategy:
+      model: DemandOpenLoopConverterController
+    model_inputs:
+      control_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
+        demand_profile: 2000000   # 2000 MW constant DC load

@@ -12,15 +12,15 @@ technologies:
       model: QuinnNuclearCostModel
     model_inputs:
       shared_parameters:
-        system_capacity_kw: 1000000  # 1000 MW nuclear plant
+        system_capacity_kw: 1150000  # 1000 MW nuclear plant
       performance_parameters: {}
       cost_parameters:
         cost_year: 2024
-        capex_per_kw: 7400
+        capex_per_kw: 8300
         fixed_opex_per_kw_year: 0.0
-        variable_opex_per_mwh: 28
-        reference_capacity_kw: 1000000
-        capex_scaling_exponent: 0.7
+        variable_opex_per_mwh: 23
+        reference_capacity_kw: 1150000
+        capex_scaling_exponent: 0.5
 
   # Separate grid connection for buying backup power when nuclear < DC demand
   grid_buy:

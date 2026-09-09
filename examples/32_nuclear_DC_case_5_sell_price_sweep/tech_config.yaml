@@ -16,16 +16,8 @@ technologies:
         capex_per_kw: 9300              # $/kW AP1000 greenfield (Shirvan 2024)
         fixed_opex_per_kw_year: 0.0
         variable_opex_per_mwh: 23       # $/MWh (Shirvan 2024)
-        # 1150 MWe = the AP1000 unit capacity Shirvan 2024 itself states
-        # ("...cost of the next AP1000 (1150 MWe Generation III+)..."), and
-        # the capacity capex_per_kw's $9,300/kW is anchored to (low end of
-        # the "Next 2 @ Green Field" $9,300-$11,625/kW range). This is the
-        # point at which capex_per_kw applies at face value (scale_ratio =
-        # system_capacity_kw / reference_capacity_kw = 1); away from
-        # 1150 MW, the 0.5 exponent below applies real economies/
-        # diseconomies of scale relative to the actual single-unit reference.
-        reference_capacity_kw: 1150000
-        capex_scaling_exponent: 0.5
+        reference_capacity_kw: 1000000
+        capex_scaling_exponent: 0.5    
 
   grid:
     performance_model:

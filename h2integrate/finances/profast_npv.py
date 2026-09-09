@@ -128,7 +128,16 @@ class ProFastNPV(ProFastBase):
             pf = self.populate_profast(inputs)
 
         non_op_Nyears = int(np.ceil(self.params.installation_time / 12) + 1)
-        sell_profile = np.concatenate(
-            [np.zeros(non_op_Nyears), inputs[f"sell_price_{self.output_txt}"]]
-        )
+        sell_price = inputs[f"sell_price_{self.output_txt}"]
+        # Pad with the schedule's own first-year value, NOT zero. ProFAST's own
+        # `cash_flow()` already knows the plant produces nothing (or only
+        # partial output) during construction from `installation_time` (passed
+        # to it inside `populate_profast`) and weights each year's revenue by
+        # that year's actual production -- feeding it an explicit zero price for
+        # the non-operating years double-counts that delay on top of ProFAST's
+        # own internal schedule. Verified: at price == LCOE, zero-padding gives
+        # NPV != 0 (wrong), while padding with the first-year price reproduces
+        # NPV == 0 exactly (matching the bare-scalar behavior this array-price
+        # support replaced).
+        sell_profile = np.concatenate([np.full(non_op_Nyears, sell_price[0]), sell_price])
         outputs[f"NPV_{self.output_txt}"] = pf.cash_flow(price=sell_profile)
